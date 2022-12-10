@@ -1,12 +1,15 @@
 import sys,os
 import string
 import csv
-from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import Qt
+from PyQt5.QtCore import Qt, QStringListModel, QSortFilterProxyModel, pyqtSignal, QEvent, QRegExp
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QMenu, QLineEdit, QInputDialog, QWidget,
+                             QMessageBox, QFileDialog, QLabel, QVBoxLayout, QHBoxLayout, QScrollArea, QTextEdit,
+                             QDialog, QAction, QActionGroup, QStackedWidget, QComboBox, QCompleter)
+from PyQt5.QtGui import QFont, QIcon
 
 GRAMMAR_DIR = "grammars"
 
-class WordButton(QtGui.QPushButton):
+class WordButton(QPushButton):
 	def __init__(self,word,id):
 		super(WordButton, self).__init__()
 		self.setText(word)
@@ -14,29 +17,29 @@ class WordButton(QtGui.QPushButton):
 		self.id = id
 
 	def contextMenuEvent(self, event):
-		menu = QtGui.QMenu(self)
+		menu = QMenu(self)
 		editAction = menu.addAction("&Edit word")
 
 		action = menu.exec_(self.mapToGlobal(event.pos()))
 		if action == editAction:
-			text,ok = QtGui.QInputDialog.getText(self,self.text(),"New value:",text = self.original)
+			text,ok = QInputDialog.getText(self,self.text(),"New value:",text = self.original)
 			if ok:
 				self.setText(text)
 
-class TransLineEdit(QtGui.QLineEdit):
+class TransLineEdit(QLineEdit):
 	# Re implemented for the focus in/out events (to know if it is currently selected or not)
 
-	keyDownPressed = QtCore.pyqtSignal()
+	keyDownPressed = pyqtSignal()
 
 	def __init__(self, parent = None):
 		super(TransLineEdit, self).__init__(parent)
 		self.active = False
 
 	def event(self,event):
-		if (event.type()==QtCore.QEvent.KeyPress) and (event.key()==Qt.Key_Down):
+		if (event.type()==QEvent.KeyPress) and (event.key()==Qt.Key_Down):
 			self.keyDownPressed.emit()
 			return True
-		return QtGui.QLineEdit.event(self, event)
+		return QLineEdit.event(self, event)
 
 	def focusInEvent(self, e):
 		self.active = True
@@ -47,7 +50,7 @@ class TransLineEdit(QtGui.QLineEdit):
 		super(TransLineEdit, self).focusOutEvent(e)
 
 # LineEdit field for grammar notes
-class GramLineEdit(QtGui.QLineEdit):
+class GramLineEdit(QLineEdit):
 	def __init__(self,grammarDict=None,css=None, parent=None):
 		super(GramLineEdit, self).__init__(parent)
 		self.grammarDict = grammarDict
@@ -61,7 +64,7 @@ class GramLineEdit(QtGui.QLineEdit):
 		grammarStr = ""
 
 # A pop up window with the original text
-class OriginalWindow(QtGui.QWidget):
+class OriginalWindow(QWidget):
 	def __init__(self, text, fontSize = 12, parent=None):
 		super(OriginalWindow, self).__init__(parent)
 		self.fontSize = fontSize
@@ -70,47 +73,47 @@ class OriginalWindow(QtGui.QWidget):
 
 	def initialize(self):
 		# Make a scroll area and put a QLabel inside it
-		self.scrollArea = QtGui.QScrollArea(self)
+		self.scrollArea = QScrollArea(self)
 		self.scrollArea.setWidgetResizable(True)
 		# Buttons for zoom
-		self.zoomLayout = QtGui.QHBoxLayout()
+		self.zoomLayout = QHBoxLayout()
 		# The layout for our window
-		layout = QtGui.QVBoxLayout(self)
+		layout = QVBoxLayout(self)
 		layout.addWidget(self.scrollArea)
 		layout.setContentsMargins(0,0,0,0)
 
-		self.chapterText = QtGui.QLabel(self.text)
+		self.chapterText = QLabel(self.text)
 		self.chapterText.setTextInteractionFlags(Qt.TextSelectableByMouse)
 		self.chapterText.setContentsMargins(10,5,10,5)
 		self.chapterText.setWordWrap(True)
 		self.chapterText.setAlignment(Qt.AlignJustify)
-		font = QtGui.QFont("",self.fontSize)
+		font = QFont("",self.fontSize)
 		self.chapterText.setFont(font)
 		self.scrollArea.setWidget(self.chapterText)
 
 	def keyPressEvent(self, event):
-		if event.key() == QtCore.Qt.Key_Escape:
+		if event.key() == Qt.Key_Escape:
 			self.hide()
 			event.accept()
-		elif event.key() == QtCore.Qt.Key_Plus:
+		elif event.key() == Qt.Key_Plus:
 			self.fontSize += 1
-			font = QtGui.QFont("",self.fontSize)
+			font = QFont("",self.fontSize)
 			self.chapterText.setFont(font)
-		elif event.key() == QtCore.Qt.Key_Minus:
+		elif event.key() == Qt.Key_Minus:
 			self.fontSize -= 1
-			font = QtGui.QFont("",self.fontSize)
+			font = QFont("",self.fontSize)
 			self.chapterText.setFont(font)
 		else:
 			super(OriginalWindow, self).keyPressEvent(event)
 
-class ErrorPopup(QtGui.QMessageBox):
+class ErrorPopup(QMessageBox):
 	def __init__(self, title, msg, parent=None):
 		super(ErrorPopup, self).__init__(parent)
-		self.setIcon(QtGui.QMessageBox.Warning)
+		self.setIcon(QMessageBox.Warning)
 		self.setWindowTitle(title)
 		self.setText(msg)
 
-class GrammarWindow(QtGui.QDialog):
+class GrammarWindow(QDialog):
 	def __init__(self, grammarDict, parent=None):
 		super(GrammarWindow, self).__init__(parent)
 		self.grammarDict = grammarDict
@@ -118,37 +121,36 @@ class GrammarWindow(QtGui.QDialog):
 		self.initUI()
 
 	def initUI(self):
-		widget = QtGui.QWidget()
-		layout = QtGui.QVBoxLayout()
+		layout = QVBoxLayout()
 		layout.setAlignment(Qt.AlignTop)
 		layout.setContentsMargins(2,2,2,2)
 		# Where we type new grammar items
-		self.grammarLineEdit = QtGui.QLineEdit()
+		self.grammarLineEdit = QLineEdit()
 		itemList = sorted(list(self.grammarDict))
-		model = QtGui.QStringListModel()
+		model = QStringListModel()
 		model.setStringList(itemList)
 		self.completer = GrammarCompleter(self.grammarLineEdit)
-		self.completer.setCompletionMode(QtGui.QCompleter.PopupCompletion)
-		self.completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+		self.completer.setCompletionMode(QCompleter.PopupCompletion)
+		self.completer.setCaseSensitivity(Qt.CaseInsensitive)
 		self.completer.setModel(model)
 		self.grammarLineEdit.setCompleter(self.completer)
 		self.grammarLineEdit.textChanged.connect(self.textChanged)
 
-		downAction = QtGui.QAction(self.grammarLineEdit)
+		downAction = QAction(self.grammarLineEdit)
 		downAction.setShortcut("Down")
 		downAction.triggered.connect(self.completer.complete)
 		self.grammarLineEdit.addAction(downAction)
 
 		# Where we type the grammar pop up information
-		self.grammarTextEdit = QtGui.QTextEdit()
+		self.grammarTextEdit = QTextEdit()
 		# The submit buttons
-		buttonWidget = QtGui.QWidget()
-		buttonLayout = QtGui.QHBoxLayout(buttonWidget)
+		buttonWidget = QWidget()
+		buttonLayout = QHBoxLayout(buttonWidget)
 		buttonLayout.setContentsMargins(0,0,0,0)
-		self.button = QtGui.QPushButton("Add")
+		self.button = QPushButton("Add")
 		self.button.clicked.connect(self.addGrammar)
 		self.button.setMaximumWidth(40)
-		self.saveButton = QtGui.QPushButton("Save")
+		self.saveButton = QPushButton("Save")
 		self.saveButton.clicked.connect(self.addGrammar)
 		self.saveButton.setMaximumWidth(40)
 		self.saveButton.setVisible(False)
@@ -183,7 +185,7 @@ class GrammarWindow(QtGui.QDialog):
 			self.grammarLineEdit.setFocus()
 			self.grammarTextEdit.setText("")
 			# Update completer data
-			self.completer = QtGui.QCompleter(sorted(list(self.grammarDict)), self.grammarLineEdit)
+			self.completer = QCompleter(sorted(list(self.grammarDict)), self.grammarLineEdit)
 			self.grammarLineEdit.setCompleter(self.completer)
 			self.grammarLineEdit.completer().complete()
 
@@ -199,30 +201,30 @@ class GrammarWindow(QtGui.QDialog):
 				self.grammarTextEdit.setText("")
 				self.grammarTextEdit.setEnabled(True)
 
-class GrammarCompleter(QtGui.QCompleter):
+class GrammarCompleter(QCompleter):
 	def __init__(self, parent=None):
 		super(GrammarCompleter, self).__init__(parent)
 
 	def setModel(self, model):
 		self.sourceModel = model
-		self.filterProxyModel = QtGui.QSortFilterProxyModel(self)
+		self.filterProxyModel = QSortFilterProxyModel(self)
 		self.filterProxyModel.setSourceModel(self.sourceModel)
 		super(GrammarCompleter, self).setModel(self.filterProxyModel)
 
 	def updateModel(self):
 		# Let / autocomplete until the next / using regexp
-		pattern = QtCore.QRegExp(self.completionPrefix.replace("/",".*/"), QtCore.Qt.CaseInsensitive, QtCore.QRegExp.RegExp)
+		pattern = QRegExp(self.completionPrefix.replace("/",".*/"), Qt.CaseInsensitive, QRegExp.RegExp)
 		self.filterProxyModel.setFilterRegExp(pattern)
 
 	def splitPath(self, path):
 		# path = user's input
 		self.completionPrefix = path
 		self.updateModel()
-		return ""
+		return [""]
 
-class Main(QtGui.QMainWindow):
+class Main(QMainWindow):
 	def __init__(self, parent = None):
-		QtGui.QMainWindow.__init__(self,parent)
+		QMainWindow.__init__(self,parent)
 
 		self.filename = ""
 		self.saved = False
@@ -265,13 +267,13 @@ class Main(QtGui.QMainWindow):
 
 	def initCentral(self):
 		# Everything will go in this central widget
-		self.centralWidget = QtGui.QWidget()
+		self.centralWidget = QWidget()
 		# Put the scroll area into a VBox layout
-		layout = QtGui.QVBoxLayout(self.centralWidget)
-		self.scrollArea = QtGui.QScrollArea(self.centralWidget)
+		layout = QVBoxLayout(self.centralWidget)
+		self.scrollArea = QScrollArea(self.centralWidget)
 		self.scrollArea.setWidgetResizable(True)
 		# the chapter combo box goes here
-		self.chapterBox = QtGui.QHBoxLayout()
+		self.chapterBox = QHBoxLayout()
 		# add the combo box layout and the text layout
 		layout.addLayout(self.chapterBox)
 		layout.addWidget(self.scrollArea)
@@ -281,7 +283,7 @@ class Main(QtGui.QMainWindow):
 		layout.setContentsMargins(0,0,0,0)
 
 		# Add a widget into the scroll area where our contents will go
-		self.scrollAreaStack = QtGui.QStackedWidget()
+		self.scrollAreaStack = QStackedWidget()
 		self.scrollArea.setWidget(self.scrollAreaStack)
 
 		self.setCentralWidget(self.centralWidget)
@@ -292,37 +294,37 @@ class Main(QtGui.QMainWindow):
 
 	def initToolbar(self):
 		# New button
-		self.newAction = QtGui.QAction(QtGui.QIcon("icons/new.png"),"New",self)
+		self.newAction = QAction(QIcon("icons/new.png"),"New",self)
 		self.newAction.setStatusTip("Start a new project")
 		self.newAction.setShortcut("Ctrl+N")
 		self.newAction.triggered.connect(self.new)
 		# Open button
-		self.openAction = QtGui.QAction(QtGui.QIcon("icons/open.png"),"Open",self)
+		self.openAction = QAction(QIcon("icons/open.png"),"Open",self)
 		self.openAction.setStatusTip("Open project")
 		self.openAction.setShortcut("Ctrl+O")
 		self.openAction.triggered.connect(self.open)
 		# Save button
-		self.saveAction = QtGui.QAction(QtGui.QIcon("icons/save.png"),"Save",self)
+		self.saveAction = QAction(QIcon("icons/save.png"),"Save",self)
 		self.saveAction.setStatusTip("Save project")
 		self.saveAction.setShortcut("Ctrl+S")
 		self.saveAction.triggered.connect(self.save)
 		# Export button
-		self.exportAction = QtGui.QAction(QtGui.QIcon("icons/export.png"),"Export",self)
+		self.exportAction = QAction(QIcon("icons/export.png"),"Export",self)
 		self.exportAction.setStatusTip("Export project")
 		self.exportAction.setShortcut("Ctrl+E")
 		self.exportAction.triggered.connect(self.export)
 		# Multi-word button
-		self.multiAction = QtGui.QAction(QtGui.QIcon("icons/multi.png"),"Multi-Word",self)
+		self.multiAction = QAction(QIcon("icons/multi.png"),"Multi-Word",self)
 		self.multiAction.setStatusTip("Add multi-word translation")
 		self.multiAction.setShortcut("Ctrl+M")
 		self.multiAction.triggered.connect(self.multiAdd)
 		# Remove multi-word button
-		self.multiRemAction = QtGui.QAction(QtGui.QIcon("icons/multiRemove.png"),"Remove Multi-Word",self)
+		self.multiRemAction = QAction(QIcon("icons/multiRemove.png"),"Remove Multi-Word",self)
 		self.multiRemAction.setStatusTip("Remove multi-word translation")
 		self.multiRemAction.setShortcut("Ctrl+Shift+M")
 		self.multiRemAction.triggered.connect(self.multiRemove)
 		# Show original text
-		self.showTextAction = QtGui.QAction(QtGui.QIcon("icons/original.png"),"Show original",self)
+		self.showTextAction = QAction(QIcon("icons/original.png"),"Show original",self)
 		self.showTextAction.setStatusTip("Show original text in a pop-up window")
 		self.showTextAction.setShortcut("Ctrl+T")
 		self.showTextAction.triggered.connect(self.showText)
@@ -345,12 +347,12 @@ class Main(QtGui.QMainWindow):
 		self.menubar = self.menuBar()
 
 		# Create an exit action
-		self.exitAction = QtGui.QAction("Exit",self)
+		self.exitAction = QAction("Exit",self)
 		self.exitAction.setStatusTip("Exit program")
 		self.exitAction.setShortcut("Ctrl+Q")
-		self.exitAction.triggered.connect(QtGui.qApp.quit)
+		self.exitAction.triggered.connect(self.close)
 		# Create a save as action
-		self.saveAsAction = QtGui.QAction("Save As",self)
+		self.saveAsAction = QAction("Save As",self)
 		self.saveAsAction.setStatusTip("Save project as")
 		self.saveAsAction.setShortcut("Ctrl+Shift+S")
 		self.saveAsAction.triggered.connect(self.saveAs)
@@ -368,12 +370,12 @@ class Main(QtGui.QMainWindow):
 		# Grammar
 		self.grammarMenu = self.menubar.addMenu("&Grammar")
 		self.setLanguageMenu = self.grammarMenu.addMenu("Set Language")
-		self.languageGroup = QtGui.QActionGroup(self.setLanguageMenu)
+		self.languageGroup = QActionGroup(self.setLanguageMenu)
 		for language in self.languageList:
 			# Add action to actionGroup
 			action = self.languageGroup.addAction(language.capitalize())
 			action.setCheckable(True)
-			action.triggered[()].connect(lambda language=language: self.changeLanguage(language))
+			action.triggered.connect(lambda checked=False, language=language: self.changeLanguage(language))
 			# Add action to menu
 			self.setLanguageMenu.addAction(action)
 		self.grammarAction = self.grammarMenu.addAction("Add/Edit &Grammar",self.addGrammar)
@@ -386,10 +388,10 @@ class Main(QtGui.QMainWindow):
 	# ACTIONS #
 
 	def new(self):
-		filename = QtGui.QFileDialog.getOpenFileName(self, 'Load Text',".","(*.txt);;All(*.*)")
+		filename, ok = QFileDialog.getOpenFileName(self, 'Load Text',".","(*.txt);;All(*.*)")
 
 		# Open file
-		if filename:
+		if ok:
 			with open(filename,"rt") as file:
 				self.text = Text(file.read().rstrip())
 			self.buildChapters()
@@ -399,17 +401,17 @@ class Main(QtGui.QMainWindow):
 	def buildChapters(self):
 		self.initCentral()
 		# build chapter list
-		self.chapterListMenu = QtGui.QComboBox()
+		self.chapterListMenu = QComboBox()
 		self.chapterListMenu.setMaximumWidth(120)
 		self.chapterListMenu.currentIndexChanged.connect(self.changeChapter)
 		self.chapterListMenu.addItems(["Chapter {}".format(x+1) for x in range(self.text.numChapters)])
-		hbox = QtGui.QVBoxLayout()
+		hbox = QVBoxLayout()
 		hbox.addWidget(self.chapterListMenu)
 		self.chapterBox.addLayout(hbox)
 
 		self.scrollAreaList = []
 		for i in range(self.text.numChapters):
-			self.scrollAreaList.append(QtGui.QWidget())
+			self.scrollAreaList.append(QWidget())
 			self.scrollAreaStack.addWidget(self.scrollAreaList[i])
 		# First change chapter to 1, otherwise changeChapter won't let us change
 		self.text.currentChapter = 1
@@ -419,7 +421,9 @@ class Main(QtGui.QMainWindow):
 		if filename:
 			self.filename = filename
 		else:
-			self.filename = QtGui.QFileDialog.getOpenFileName(self, 'Open File',".","(*.ilt)")
+			self.filename, ok = QFileDialog.getOpenFileName(self, 'Open File',".","(*.ilt)")
+			if not ok:
+				return
 
 		# If we succeeded, open and read file
 		if self.filename:
@@ -439,7 +443,7 @@ class Main(QtGui.QMainWindow):
 				# Load language grammar rules
 				self.changeLanguage(self.language)
 				# Check the language in the [Grammar->Languages] menu
-				for action in self.languageGroup.findChildren(QtGui.QAction):
+				for action in self.languageGroup.findChildren(QAction):
 					if action.text().lower() == self.language:
 						action.setChecked(True)
 				# Count number of chapters in book
@@ -464,8 +468,9 @@ class Main(QtGui.QMainWindow):
 		if self.loaded:
 			# If we haven't saved yet, give it a name
 			if not self.filename:
-				self.filename = QtGui.QFileDialog.getSaveFileName(self, "Save File",".","(*.ilt)")
-
+				self.filename, ok = QFileDialog.getSaveFileName(self, "Save File",".","(*.ilt)")
+				if not ok:
+					return
 			# If we selected a file, save. Otherwise, do nothing.
 			if self.filename:
 				# make sure the original text is up to date
@@ -535,13 +540,13 @@ class Main(QtGui.QMainWindow):
 					f.write(fileText)
 			else:
 				# prompt user to save
-				savedMsg = QtGui.QMessageBox()
-				savedMsg.setIcon(QtGui.QMessageBox.Warning)
+				savedMsg = QMessageBox()
+				savedMsg.setIcon(QMessageBox.Warning)
 				savedMsg.setText("You must save before exporting!\nSave now?")
 				savedMsg.setWindowTitle("Save?")
-				savedMsg.setStandardButtons(QtGui.QMessageBox.No | QtGui.QMessageBox.Yes )
+				savedMsg.setStandardButtons(QMessageBox.No | QMessageBox.Yes )
 				answer = savedMsg.exec_()
-				if answer == QtGui.QMessageBox.Yes:
+				if answer == QMessageBox.Yes:
 					self.save()
 
 	def multiAdd(self):
@@ -565,7 +570,7 @@ class Main(QtGui.QMainWindow):
 				words = words[:-2]+"]"
 				defaultText = defaultText[:-1].strip('-,.!?"()[]\{\}\'') + "; "
 
-				text,ok = QtGui.QInputDialog.getText(self, words, "Enter translation:", text = defaultText)
+				text,ok = QInputDialog.getText(self, words, "Enter translation:", text = defaultText)
 				if ok:
 					for (orig,trans) in selectedWords:
 						trans.setText(trans.text().rstrip()+" ["+text+"]")
@@ -640,7 +645,7 @@ class Main(QtGui.QMainWindow):
 		self.grammarDict = self.window.grammarDict
 		for row,orig,trans,gram in self.text.wordList[self.text.currentChapter]:
 			itemList = sorted(list(self.grammarDict))
-			model = QtGui.QStringListModel()
+			model = QStringListModel()
 			model.setStringList(itemList)
 			gram.completer().setModel(model)
 
@@ -668,7 +673,7 @@ class Main(QtGui.QMainWindow):
 		wordCount = 0
 		rows = -1
 		# Each word is placed in a vbox with the original and translation
-		vbox = QtGui.QVBoxLayout()
+		vbox = QVBoxLayout()
 		vbox.setAlignment(Qt.AlignTop)
 		for paragraph in paragraphsOriginal:
 			rows += 1
@@ -713,16 +718,16 @@ class Main(QtGui.QMainWindow):
 				trans.setStyleSheet(css)
 				# set up grammar box and special grammar completer
 				if grammar and len(grammar) > wordCount:
-					gram = QtGui.QLineEdit(grammar[wordCount].strip())
+					gram = QLineEdit(grammar[wordCount].strip())
 				else:
-					gram = QtGui.QLineEdit()
+					gram = QLineEdit()
 				gram.setStyleSheet(css)
 				itemList = sorted(list(self.grammarDict))
-				model = QtGui.QStringListModel()
+				model = QStringListModel()
 				model.setStringList(itemList)
 				self.completer = GrammarCompleter(gram)
-				self.completer.setCompletionMode(QtGui.QCompleter.PopupCompletion)
-				self.completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+				self.completer.setCompletionMode(QCompleter.PopupCompletion)
+				self.completer.setCaseSensitivity(Qt.CaseInsensitive)
 				self.completer.setModel(model)
 				gram.setCompleter(self.completer)
 
@@ -735,11 +740,11 @@ class Main(QtGui.QMainWindow):
 		# Make a list with each row of the text
 		hboxList = []
 		for i in range(rows+1):
-			hboxList.append(QtGui.QHBoxLayout())
+			hboxList.append(QHBoxLayout())
 		# Populate list
 		# wordBox is a vbox layout which goes inside the hboxList to form a line of text
 		for (row,org,trans,gram) in wordList:
-			wordBox = QtGui.QVBoxLayout()
+			wordBox = QVBoxLayout()
 			wordBox.addWidget(org)
 			wordBox.addWidget(trans)
 			wordBox.addWidget(gram)
@@ -874,13 +879,12 @@ class Text:
 			self.chapterList[i] = self.chapterList[i].strip()
 
 def main():
-
-	app = QtGui.QApplication(sys.argv)
+	app = QApplication(sys.argv)
 
 	main = Main()
 	main.show()
 
-	sys.exit(app.exec_())
+	sys.exit(app.exec())
 
 if __name__ == "__main__":
 	main()

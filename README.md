@@ -1,21 +1,21 @@
 # InterText
-A simple tool for creating and translating interlinear texts, using Python 3 and PyQt4.
+A simple tool for creating and translating interlinear texts, using Python 3 and PyQt5.
 
 ## Getting started
 A few tips before you get started.
 
 ### What you will need
-You'll need to have Python 3 installed as well as PyQt4.
+You'll need to have Python 3 installed as well as PyQt5.
 
 **Windows:**
 
 1. Download and install the latest Python 3 version from https://www.python.org/downloads/
-2. Scroll down to the "Binary Packages" section and download and install the latest PyQt4 from https://www.riverbankcomputing.com/software/pyqt/download
+2. Scroll down to the "Binary Packages" section and download and install the latest PyQt5 from https://www.riverbankcomputing.com/software/pyqt/download
 3. Download and extract the InterText repository. You should be able to double-click intertext.py to open the program.
 
 **Linux:**
 
-1. User your package manager to install PyQt4 and Python 3. For example, under Fedora: `sudo dnf install python3 PyQt4`
+1. User your package manager to install PyQt5 and Python 3. For example, under Fedora: `sudo dnf install python3-qt5`
 2. Download the InterText repository. Run `python3 interedit.py` from the terminal.
 
 ### New
